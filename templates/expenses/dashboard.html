@@ -1,0 +1,324 @@
+<!-- Professional dashboard with charts, statistics, and financial overview -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FinanceTracker Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="text-white mb-4">
+            <i class="bi bi-graph-up"></i> Financial Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Key Financial Metrics -->
+<div class="row mb-4 g-3">
+    <!-- Total Income Card -->
+    <div class="col-md-3 col-sm-6">
+        <div class="stat-card income">
+            <div class="stat-label">Total Income</div>
+            <div class="stat-value">${{ total_income }}</div>
+            <small>lifetime earnings</small>
+        </div>
+    </div>
+
+    <!-- Total Expense Card -->
+    <div class="col-md-3 col-sm-6">
+        <div class="stat-card expense">
+            <div class="stat-label">Total Expenses</div>
+            <div class="stat-value">${{ total_expense }}</div>
+            <small>lifetime spending</small>
+        </div>
+    </div>
+
+    <!-- Net Balance Card -->
+    <div class="col-md-3 col-sm-6">
+        <div class="stat-card balance">
+            <div class="stat-label">Net Balance</div>
+            <div class="stat-value">
+                {% if net_balance >= 0 %}
+                    <span class="text-success">+$</span>{{ abs_net_balance }}
+                {% else %}
+                    <span class="text-danger">-$</span>{{ abs_net_balance }}
+                {% endif %}
+            </div>
+            <small>overall balance</small>
+        </div>
+    </div>
+
+    <!-- This Month Card -->
+    <div class="col-md-3 col-sm-6">
+        <div class="stat-card">
+            <div class="stat-label">This Month</div>
+            <div class="stat-value">${{ month_total_income }}</div>
+            <small style="opacity: 0.8;">income - ${{ month_total_expense }} expense</small>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row mb-4">
+    <!-- Category Spending Pie Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Category Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Trend Bar Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Monthly Trend</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats and Actions -->
+<div class="row mb-4 g-3">
+    <!-- Statistics Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-list"></i> Statistics</h5>
+                <div class="list-unstyled">
+                    <div class="mb-3">
+                        <small class="text-muted">Total Transactions</small>
+                        <div>{{ expenses_count }} expenses + {{ recent_incomes|length }} incomes</div>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Categories</small>
+                        <div>{{ categories_count }} configured</div>
+                    </div>
+                    <div>
+                        <small class="text-muted">Average Expense</small>
+                        <div>
+                            {% if expenses_count > 0 %}
+                                ${{ average_expense|floatformat:2 }}
+                            {% else %}
+                                $0.00
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-plus-square"></i> Quick Add</h5>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'expenses:add_expense' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Add Expense
+                    </a>
+                    <a href="{% url 'expenses:add_income' %}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-circle"></i> Add Income
+                    </a>
+                    <a href="{% url 'expenses:add_category' %}" class="btn btn-info btn-sm">
+                        <i class="bi bi-plus-circle"></i> Add Category
+                    </a>
+                    <a href="{% url 'expenses:budget_list' %}" class="btn btn-warning btn-sm">
+                        <i class="bi bi-calculator"></i> View Budgets
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Links -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-link-45deg"></i> Navigation</h5>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'expenses:expense_list' %}" class="list-group-item list-group-item-action">
+                        📋 View All Expenses
+                    </a>
+                    <a href="{% url 'expenses:income_list' %}" class="list-group-item list-group-item-action">
+                        💵 View All Income
+                    </a>
+                    <a href="{% url 'expenses:budget_list' %}" class="list-group-item list-group-item-action">
+                        📊 Budget Analysis
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-credit-card"></i> Recent Expenses</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in recent_expenses %}
+                                    <tr>
+                                        <td>{{ exp.title }}</td>
+                                        <td><span class="badge bg-danger">${{ exp.amount }}</span></td>
+                                        <td>{{ exp.date|date:"M d" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                <a href="{% url 'expenses:expense_list' %}" class="btn btn-sm btn-outline-primary">View All →</a>
+                {% else %}
+                    <p class="text-muted text-center py-4">No expenses yet. <a href="{% url 'expenses:add_expense' %}">Add one now!</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Recent Income</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_incomes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for inc in recent_incomes %}
+                                    <tr>
+                                        <td>{{ inc.title }}</td>
+                                        <td><span class="badge bg-success">${{ inc.amount }}</span></td>
+                                        <td>{{ inc.date|date:"M d" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                <a href="{% url 'expenses:income_list' %}" class="btn btn-sm btn-outline-primary">View All →</a>
+                {% else %}
+                    <p class="text-muted text-center py-4">No income recorded. <a href="{% url 'expenses:add_income' %}">Add income!</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js Script for rendering charts -->
+<!-- Chart.js Script for rendering charts -->
+<script>
+    // Category Pie Chart
+    const categoryCtx = document.getElementById('categoryChart');
+    if (categoryCtx) {
+        const chartData = JSON.parse('{{ chart_data|escapejs }}');
+
+        new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    data: chartData.data,
+                    backgroundColor: [
+                        '#667eea',
+                        '#764ba2',
+                        '#f093fb',
+                        '#4facfe',
+                        '#00f2fe',
+                        '#43e97b',
+                        '#fa709a',
+                        '#fee140'
+                    ],
+                    borderColor: 'rgba(255, 255, 255, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // Monthly Trend Bar Chart
+    const monthlyCtx = document.getElementById('monthlyChart');
+    if (monthlyCtx) {
+        const monthlyData = JSON.parse('{{ monthly_data|escapejs }}');
+
+        const months = Object.keys(monthlyData);
+        const expenseData = months.map(m => monthlyData[m].expense);
+        const incomeData = months.map(m => monthlyData[m].income);
+
+        new Chart(monthlyCtx, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: incomeData,
+                        backgroundColor: '#10b981',
+                        borderRadius: 5
+                    },
+                    {
+                        label: 'Expense',
+                        data: expenseData,
+                        backgroundColor: '#ef4444',
+                        borderRadius: 5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}
