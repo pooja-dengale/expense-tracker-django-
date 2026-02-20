@@ -9,32 +9,10 @@ from django.contrib.auth.forms import UserCreationForm
 
 
 class RegisterForm(UserCreationForm):
-    """
-    Registration form extending Django's UserCreationForm.
-    Allows users to register with email and password.
-    """
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={
             'class': 'form-control',
             'placeholder': 'Email'
-        })
-    )
-    username = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Username'
-        })
-    )
-    password1 = forms.CharField(
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Password'
-        })
-    )
-    password2 = forms.CharField(
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Confirm Password'
         })
     )
 
@@ -42,12 +20,12 @@ class RegisterForm(UserCreationForm):
         model = User
         fields = ('username', 'email', 'password1', 'password2')
 
-    def clean_email(self):
-        """Ensure email is unique."""
-        email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
-            raise forms.ValidationError("This email is already registered.")
-        return email
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data["email"]
+        if commit:
+            user.save()
+        return user
 
 
 class LoginForm(forms.Form):
