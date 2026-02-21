@@ -118,7 +118,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Additional locations of static files
+STATICFILES_DIRS = []
+
+# Simplified static files storage for better compatibility
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -126,6 +134,40 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Login URL
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'expenses:dashboard'
+
+# Logging Configuration (for production debugging)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 
 # Production Security Settings
 if not DEBUG:
@@ -141,3 +183,7 @@ if not DEBUG:
     
     # Trust Render's proxy headers
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    
+    # More verbose logging in production for debugging
+    LOGGING['root']['level'] = 'WARNING'
+    LOGGING['loggers']['django.request']['level'] = 'ERROR'
