@@ -40,10 +40,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         total_expense = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         net_balance = total_income - total_expense
 
-        # 🔹 COUNT EXPENSES
+        # COUNT EXPENSES
         expenses_count = expenses.count()
 
-        # 🔹 CALCULATE AVERAGE EXPENSE (NEW CODE)
+        # CALCULATE AVERAGE EXPENSE
         if expenses_count > 0:
             average_expense = total_expense / expenses_count
         else:
@@ -60,15 +60,56 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         month_total_expense = month_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         month_total_income = month_income.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
+        # Recent transactions
+        recent_expenses = expenses.order_by('-date')[:5]
+        recent_incomes = incomes.order_by('-date')[:5]
+        
+        # Categories count
+        categories_count = Category.objects.filter(user=user).count()
+        
+        # Chart data for category breakdown
+        category_data = expenses.values('category__name').annotate(
+            total=Sum('amount')
+        ).order_by('-total')[:8]
+        
+        chart_labels = [item['category__name'] or 'Uncategorized' for item in category_data]
+        chart_values = [float(item['total']) for item in category_data]
+        
+        # Monthly trend data (last 6 months)
+        monthly_data = {}
+        for i in range(5, -1, -1):
+            month_date = (current_date - timedelta(days=30*i)).replace(day=1)
+            month_name = month_date.strftime('%b')
+            
+            month_exp = expenses.filter(
+                date__year=month_date.year,
+                date__month=month_date.month
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            
+            month_inc = incomes.filter(
+                date__year=month_date.year,
+                date__month=month_date.month
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            
+            monthly_data[month_name] = {
+                'expense': float(month_exp),
+                'income': float(month_inc)
+            }
+
         context.update({
             'total_income': total_income,
             'total_expense': total_expense,
-            'average_expense': average_expense,   # 👈 NEW
+            'average_expense': average_expense,
             'net_balance': net_balance,
             'abs_net_balance': abs(net_balance),
             'month_total_income': month_total_income,
             'month_total_expense': month_total_expense,
             'expenses_count': expenses_count,
+            'recent_expenses': recent_expenses,
+            'recent_incomes': recent_incomes,
+            'categories_count': categories_count,
+            'chart_data': json.dumps({'labels': chart_labels, 'data': chart_values}),
+            'monthly_data': json.dumps(monthly_data),
         })
 
         return context
