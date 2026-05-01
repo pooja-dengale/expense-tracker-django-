@@ -51,11 +51,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         # Current month calculations
         current_date = timezone.now()
-        month_start = current_date.replace(day=1)
-        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        current_date_only = current_date.date()
+        month_start = current_date_only.replace(day=1)
+        # Last day of current month
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1)
 
-        month_expenses = expenses.filter(date__gte=month_start, date__lte=month_end)
-        month_income = incomes.filter(date__gte=month_start, date__lte=month_end)
+        month_expenses = expenses.filter(date__gte=month_start, date__lt=month_end)
+        month_income = incomes.filter(date__gte=month_start, date__lt=month_end)
 
         month_total_expense = month_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         month_total_income = month_income.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
@@ -78,13 +83,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Monthly trend data (last 6 months)
         monthly_data = {}
         for i in range(5, -1, -1):
-            # Proper month arithmetic: subtract i months from current month
-            year = current_date.year
-            month = current_date.month - i
+            # Proper month arithmetic using date objects (not datetime)
+            year = current_date_only.year
+            month = current_date_only.month - i
             while month <= 0:
                 month += 12
                 year -= 1
-            month_date = current_date.replace(year=year, month=month, day=1)
+            from datetime import date as date_type
+            month_date = date_type(year, month, 1)
             month_name = month_date.strftime('%b')
             
             month_exp = expenses.filter(
