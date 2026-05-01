@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Render build script - exit on error
+# Render build script - exit immediately on any error
 set -o errexit
 
-echo "Installing dependencies..."
+echo "==> Installing dependencies..."
 pip install -r requirements.txt
 
-echo "Collecting static files..."
+echo "==> Collecting static files..."
 python manage.py collectstatic --no-input --clear
 
-echo "Running database migrations..."
+echo "==> Running database migrations..."
 python manage.py migrate --no-input
 
-echo "Build completed successfully!"
+echo "==> Build completed successfully!"
