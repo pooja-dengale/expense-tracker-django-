@@ -5,24 +5,25 @@ Configures database, installed apps, middleware, templates, and static files.
 
 from pathlib import Path
 import os
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # SECURITY WARNING: keep the secret key used in production secret!
-
-
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-# Show detailed errors in development, generic in production
-if DEBUG:
-    ALLOWED_HOSTS = ['*']
-else:
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+# Detect production environment
+IS_PRODUCTION = bool(os.environ.get('DATABASE_URL'))
 
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+
+# Always allow Render internal hostnames
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 INSTALLED_APPS = [
@@ -38,13 +39,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'expense_tracker.urls'
@@ -67,12 +68,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'expense_tracker.wsgi.application'
 
-
-
-# Database
-# Use PostgreSQL in production (Render), SQLite in development
-if os.environ.get('DATABASE_URL'):
-    # Production: PostgreSQL from Render
+# Database — PostgreSQL in production, SQLite in development
+if IS_PRODUCTION:
     import dj_database_url
     DATABASES = {
         'default': dj_database_url.config(
@@ -82,7 +79,6 @@ if os.environ.get('DATABASE_URL'):
         )
     }
 else:
-    # Development: SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -90,23 +86,13 @@ else:
         }
     }
 
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
-
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -114,42 +100,35 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
+# Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Additional locations of static files
 STATICFILES_DIRS = []
 
-# Static files storage — Django 5.x uses STORAGES dict
+# Use simple static storage — avoids manifest errors on first deploy
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": (
-            "django.contrib.staticfiles.storage.StaticFilesStorage"
-            if DEBUG
-            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
-        ),
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Login URL
+# Auth URLs
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'expenses:dashboard'
 
-# Logging Configuration (for production debugging)
+# Logging — always log to console (Render captures stdout)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} {module} {process:d} {message}',
             'style': '{',
         },
     },
@@ -177,9 +156,7 @@ LOGGING = {
     },
 }
 
-# Production Security Settings — only apply when running on a real server (not local dev)
-IS_PRODUCTION = not DEBUG and os.environ.get('DATABASE_URL')
-
+# Production security settings
 if IS_PRODUCTION:
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
@@ -187,13 +164,12 @@ if IS_PRODUCTION:
     SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    
-    # Trust Render's proxy headers
+    # Trust Render's HTTPS proxy
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    
-    # More verbose logging in production for debugging
+    CSRF_TRUSTED_ORIGINS = [
+        f"https://{RENDER_EXTERNAL_HOSTNAME}" if RENDER_EXTERNAL_HOSTNAME else '',
+        'https://*.onrender.com',
+    ]
     LOGGING['root']['level'] = 'WARNING'
-    LOGGING['loggers']['django.request']['level'] = 'ERROR'
